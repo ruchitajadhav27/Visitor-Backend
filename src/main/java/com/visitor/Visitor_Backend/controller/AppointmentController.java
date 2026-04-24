@@ -77,27 +77,34 @@ public class AppointmentController {
         }
     }
     
-    
     @GetMapping("/available")
     public List<Appointment> getAvailable() {
         List<Appointment> allAvailable = repository.findByAvailableTrue();
         
         LocalDate today = LocalDate.now();
         LocalTime now = LocalTime.now();
-        DateTimeFormatter tf = DateTimeFormatter.ofPattern("hh:mm a", Locale.ENGLISH);
+        // Ensure pattern matches "01:00 PM" exactly
+        DateTimeFormatter tf = DateTimeFormatter.ofPattern("h:mm a", Locale.ENGLISH);
 
         return allAvailable.stream().filter(slot -> {
-            LocalDate slotDate = LocalDate.parse(slot.getDate());
-            LocalTime slotTime = LocalTime.parse(slot.getTimeIn().toUpperCase(), tf);
-            
-            // If date is in the future, it's valid
-            if (slotDate.isAfter(today)) return true;
-            // If date is today, check if time has passed
-            if (slotDate.isEqual(today)) return slotTime.isAfter(now);
-            
-            return false;
+            try {
+                LocalDate slotDate = LocalDate.parse(slot.getDate());
+                // .trim() and .toUpperCase() to prevent parsing errors
+                String timeStr = slot.getTimeIn().trim().toUpperCase();
+                LocalTime slotTime = LocalTime.parse(timeStr, tf);
+                
+                if (slotDate.isAfter(today)) return true;
+                if (slotDate.isEqual(today)) return slotTime.isAfter(now);
+                
+                return false;
+            } catch (Exception e) {
+                // If a slot has bad data, skip it instead of breaking the whole list
+                System.err.println("Error parsing slot: " + slot.getTimeIn());
+                return false;
+            }
         }).toList();
     }
+    
 
     @GetMapping("/booked")
     public List<Appointment> getBookedAppointments() {
@@ -175,16 +182,40 @@ public class AppointmentController {
     
     
 
- // --- 1. USER SIDE: CANCEL (KEEPS THE SLOT) ---
-    // Change this to @PutMapping so it doesn't conflict with the Admin Delete
+ // --- USER SIDE: CANCEL (FREES UP THE SLOT) ---
+ // --- USER SIDE: CANCEL (FREES UP THE SLOT) ---
     @PutMapping("/cancel/{id}") 
     public ResponseEntity<?> deleteAppointment(@PathVariable String id) {
         return repository.findById(id).map(appointment -> {
-            if (appointment.getVisitorName() != null) {
-                sendAdminNotification("Meeting CANCELLED by " + appointment.getVisitorName(), appointment);
+            // 1. Capture info BEFORE clearing fields
+            String visitorName = appointment.getVisitorName();
+            String purpose = appointment.getPurpose();
+            String date = appointment.getDate();
+            String time = appointment.getTimeIn();
+
+            // 2. Clear fields so the slot becomes 'available' again
+            clearSlotFields(appointment); 
+            
+            // 3. Save the reset slot to MongoDB
+            Appointment savedSlot = repository.save(appointment); 
+            
+            // 4. Send Custom Notification
+            if (visitorName != null) {
+                // REMOVE date and time from the dark text (customMessage)
+                String customMessage = "Meeting is cancelled by " + visitorName + " for " + purpose;
+                
+                // Build the notification map
+                Map<String, String> notification = new HashMap<>();
+                notification.put("visitorName", visitorName);
+                notification.put("message", customMessage); // Dark text
+                
+                // ADD purpose, date, and time to the light text fields
+                notification.put("purpose", purpose); 
+                notification.put("dateTime", date + " at " + time); // Light text (metadata)
+                
+                messagingTemplate.convertAndSend("/topic/admin-notifications", notification);
             }
-            clearSlotFields(appointment); // Makes it available again
-            repository.save(appointment); 
+            
             return ResponseEntity.ok().build();
         }).orElse(ResponseEntity.notFound().build());
     }
@@ -248,6 +279,15 @@ public class AppointmentController {
                               ", your meeting for " + saved.getDate() + " is cancelled. " + 
                               "Please select another time slot to meet.";
             }
+         // ADDED: Visited notification
+            else if ("Visited".equalsIgnoreCase(newStatus)) {
+                userMessage = "Thank you for visiting us, " + saved.getVisitorName() + 
+                              "! It was a pleasure meeting you. Have a great day ahead!";
+            }
+            else if ("Not Visited".equalsIgnoreCase(newStatus)) {
+                userMessage = "You missed your appointment scheduled for " + saved.getTimeIn() + 
+                              ". If you still need to meet, please reschedule a new slot.";
+            }
 
             if (!userMessage.isEmpty()) {
                 Map<String, String> userNotif = new HashMap<>();
@@ -261,6 +301,8 @@ public class AppointmentController {
                 
                 messagingTemplate.convertAndSend(destination, userNotif);
             }
+         // This ensures the bell icon in the Admin Header updates too
+            sendAdminNotification("Status updated to " + newStatus + " for " + saved.getVisitorName(), saved);
 
             return ResponseEntity.ok(saved);
         }).orElse(ResponseEntity.notFound().build());

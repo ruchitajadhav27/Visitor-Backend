@@ -63,6 +63,7 @@ public class EnquiryService {
         try {
             SimpleMailMessage mail = new SimpleMailMessage();
             mail.setTo("jadhavruchita27@gmail.com"); // Replace with your email
+            mail.setReplyTo(enquiry.getEmail());
             mail.setSubject("VIMS: New Contact Message");
             mail.setText("You have received a new message from the visitors contact form.\n\n" +
                          "Name: " + enquiry.getFirstName() + " " + enquiry.getLastName() + "\n" +

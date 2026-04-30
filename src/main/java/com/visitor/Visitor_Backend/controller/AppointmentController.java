@@ -1,7 +1,10 @@
 package com.visitor.Visitor_Backend.controller;
 
 import com.visitor.Visitor_Backend.model.Appointment;
+import com.visitor.Visitor_Backend.model.Notification;
 import com.visitor.Visitor_Backend.repository.AppointmentRepository;
+import com.visitor.Visitor_Backend.repository.NotificationRepository;
+
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.http.ResponseEntity;
@@ -23,6 +26,9 @@ public class AppointmentController {
 
     @Autowired
     private AppointmentRepository repository;
+    
+    @Autowired
+    private NotificationRepository notificationRepository;
 
     @Autowired
     private SimpMessagingTemplate messagingTemplate;
@@ -31,14 +37,24 @@ public class AppointmentController {
     // Centralized method to push updates to the Admin WebSocket
     private void sendAdminNotification(String message, Appointment app) {
         try {
-            Map<String, String> notification = new HashMap<>();
-            notification.put("visitorName", app.getVisitorName());
-            notification.put("purpose", app.getPurpose());
-            notification.put("dateTime", app.getDate() + " at " + app.getTimeIn());
-            notification.put("message", message);
-            messagingTemplate.convertAndSend("/topic/admin-notifications", notification);
+            // 1. Create the Persistent Notification Object for MongoDB
+            Notification dbNotif = new Notification();
+            dbNotif.setRecipient("ADMIN"); 
+            dbNotif.setMessage(message);
+            dbNotif.setVisitorName(app.getVisitorName());
+            dbNotif.setPurpose(app.getPurpose());
+            dbNotif.setDateTime(app.getDate() + " at " + app.getTimeIn());
+            dbNotif.setReceivedAt(LocalTime.now().format(DateTimeFormatter.ofPattern("hh:mm a")));
+            dbNotif.setRead(false);
+
+            // 2. SAVE to MongoDB (This makes it show up on your AdminNotificationPage)
+            notificationRepository.save(dbNotif);
+
+            // 3. Send via WebSocket (This makes the Bell Icon light up instantly)
+            messagingTemplate.convertAndSend("/topic/admin-notifications", dbNotif);
+            
         } catch (Exception e) {
-            System.err.println("WebSocket Notification failed: " + e.getMessage());
+            System.err.println("Notification failed: " + e.getMessage());
         }
     }
 
@@ -183,43 +199,27 @@ public class AppointmentController {
     
 
  // --- USER SIDE: CANCEL (FREES UP THE SLOT) ---
- // --- USER SIDE: CANCEL (FREES UP THE SLOT) ---
     @PutMapping("/cancel/{id}") 
     public ResponseEntity<?> deleteAppointment(@PathVariable String id) {
         return repository.findById(id).map(appointment -> {
-            // 1. Capture info BEFORE clearing fields
-            String visitorName = appointment.getVisitorName();
-            String purpose = appointment.getPurpose();
-            String date = appointment.getDate();
-            String time = appointment.getTimeIn();
+            // 1. Capture info BEFORE clearing
+            String vName = appointment.getVisitorName();
+            String vPurpose = appointment.getPurpose();
 
-            // 2. Clear fields so the slot becomes 'available' again
+            // 2. Clear and Save
             clearSlotFields(appointment); 
+            repository.save(appointment); 
             
-            // 3. Save the reset slot to MongoDB
-            Appointment savedSlot = repository.save(appointment); 
-            
-            // 4. Send Custom Notification
-            if (visitorName != null) {
-                // REMOVE date and time from the dark text (customMessage)
-                String customMessage = "Meeting is cancelled by " + visitorName + " for " + purpose;
-                
-                // Build the notification map
-                Map<String, String> notification = new HashMap<>();
-                notification.put("visitorName", visitorName);
-                notification.put("message", customMessage); // Dark text
-                
-                // ADD purpose, date, and time to the light text fields
-                notification.put("purpose", purpose); 
-                notification.put("dateTime", date + " at " + time); // Light text (metadata)
-                
-                messagingTemplate.convertAndSend("/topic/admin-notifications", notification);
+            // 3. Use the helper so it SAVES to the notification collection
+            if (vName != null) {
+                String customMessage = "Meeting is cancelled by " + vName + " for " + vPurpose;
+                sendAdminNotification(customMessage, appointment);
             }
             
             return ResponseEntity.ok().build();
         }).orElse(ResponseEntity.notFound().build());
     }
-
+    
     // --- 2. ADMIN SIDE: DELETE (REMOVES THE SLOT) ---
     // This stays as @DeleteMapping for your "Manage Slots" page
     @DeleteMapping("/{id}")
@@ -269,7 +269,6 @@ public class AppointmentController {
             appointment.setStatus(newStatus);
             Appointment saved = repository.save(appointment);
 
-            // --- CUSTOM USER NOTIFICATION LOGIC (EXACTLY AS PROVIDED) ---
             String userMessage = "";
             if ("Approved".equalsIgnoreCase(newStatus)) {
                 userMessage = "Meeting Approved! Please arrive at " + saved.getTimeIn() + 
@@ -278,30 +277,34 @@ public class AppointmentController {
                 userMessage = "Sorry " + saved.getVisitorName() + 
                               ", your meeting for " + saved.getDate() + " is cancelled. " + 
                               "Please select another time slot to meet.";
-            }
-         // ADDED: Visited notification
-            else if ("Visited".equalsIgnoreCase(newStatus)) {
+            } else if ("Visited".equalsIgnoreCase(newStatus)) {
                 userMessage = "Thank you for visiting us, " + saved.getVisitorName() + 
                               "! It was a pleasure meeting you. Have a great day ahead!";
-            }
-            else if ("Not Visited".equalsIgnoreCase(newStatus)) {
+            } else if ("Not Visited".equalsIgnoreCase(newStatus)) {
                 userMessage = "You missed your appointment scheduled for " + saved.getTimeIn() + 
                               ". If you still need to meet, please reschedule a new slot.";
             }
 
             if (!userMessage.isEmpty()) {
-                Map<String, String> userNotif = new HashMap<>();
-                userNotif.put("message", userMessage);
-                userNotif.put("status", newStatus);
-                userNotif.put("type", "STATUS_UPDATE");
-                
-                // FORCE lowercase and remove spaces to match the Frontend exactly
+                // --- NEW: PERSISTENT SAVE FOR USER ---
+                // Create the notification object to be stored in MongoDB
+                Notification userNotifDb = new Notification();
+                userNotifDb.setRecipient(saved.getEmail().toLowerCase().trim()); // Key for the user to find it
+                userNotifDb.setMessage(userMessage);
+                userNotifDb.setStatus(newStatus);
+                userNotifDb.setReceivedAt(LocalTime.now().format(DateTimeFormatter.ofPattern("hh:mm a")));
+                userNotifDb.setRead(false);
+
+                // Save to database so fetchNotifications() can find it later
+                notificationRepository.save(userNotifDb);
+
+                // --- WEBSOCKET PUSH ---
                 String destination = "/topic/user-" + saved.getEmail().toLowerCase().trim();
-                System.out.println("DEBUG: Pushing notification to: " + destination);
-                
-                messagingTemplate.convertAndSend(destination, userNotif);
+                // Send the actual DB object so ID and status are included
+                messagingTemplate.convertAndSend(destination, userNotifDb);
             }
-         // This ensures the bell icon in the Admin Header updates too
+
+            // Keep your admin notification logic
             sendAdminNotification("Status updated to " + newStatus + " for " + saved.getVisitorName(), saved);
 
             return ResponseEntity.ok(saved);

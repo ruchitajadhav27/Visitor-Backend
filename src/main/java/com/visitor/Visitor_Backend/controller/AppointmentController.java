@@ -4,6 +4,7 @@ import com.visitor.Visitor_Backend.model.Appointment;
 import com.visitor.Visitor_Backend.model.Notification;
 import com.visitor.Visitor_Backend.repository.AppointmentRepository;
 import com.visitor.Visitor_Backend.repository.NotificationRepository;
+import com.visitor.Visitor_Backend.service.EmailService;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
@@ -32,6 +33,9 @@ public class AppointmentController {
 
     @Autowired
     private SimpMessagingTemplate messagingTemplate;
+    
+    @Autowired
+    private EmailService emailService;
 
     // --- HELPER: NOTIFICATION LOGIC ---
     // Centralized method to push updates to the Admin WebSocket
@@ -268,6 +272,8 @@ public class AppointmentController {
             String newStatus = payload.get("status");
             appointment.setStatus(newStatus);
             Appointment saved = repository.save(appointment);
+         // ✅ ADD THIS LINE HERE
+            emailService.sendVisitorStatusEmail(saved);
 
             String userMessage = "";
             if ("Approved".equalsIgnoreCase(newStatus)) {
@@ -310,6 +316,20 @@ public class AppointmentController {
             return ResponseEntity.ok(saved);
         }).orElse(ResponseEntity.notFound().build());
     }
+    
+    
+ // Add these inside AppointmentController.java
+
+    public void sendConfirmationNotification(Appointment app) {
+        String msg = "✅ Appointment Confirmed via Email: " + app.getVisitorName();
+        sendAdminNotification(msg, app);
+    }
+
+    public void sendCancellationNotification(Appointment app) {
+        String msg = "❌ Appointment Cancelled via Email: " + app.getVisitorName();
+        sendAdminNotification(msg, app);
+    }
+    
     
     @GetMapping("/user-stats")
     public ResponseEntity<Map<String, Object>> getUserStats(@RequestParam String email) {

@@ -36,8 +36,12 @@ public class UserAuthController {
         } catch (Exception e) {
             e.printStackTrace();
 
-            return ResponseEntity.status(500)
-                    .body(Map.of("error", e.getMessage()));
+            return ResponseEntity.status(500).body(
+                Map.of(
+                    "error", e.toString(),
+                    "message", e.getMessage()
+                )
+            );
         }
     }
 

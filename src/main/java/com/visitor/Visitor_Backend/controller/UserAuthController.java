@@ -34,7 +34,10 @@ public class UserAuthController {
             otpStorage.put(email, otp);
             return ResponseEntity.ok(Map.of("message", "OTP Sent Successfully"));
         } catch (Exception e) {
-            return ResponseEntity.status(500).body(Map.of("error", e.getMessage()));
+            e.printStackTrace();
+
+            return ResponseEntity.status(500)
+                    .body(Map.of("error", e.getMessage()));
         }
     }
 

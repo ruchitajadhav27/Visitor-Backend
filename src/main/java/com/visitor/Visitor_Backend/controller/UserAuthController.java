@@ -21,27 +21,36 @@ public class UserAuthController {
 
     @PostMapping("/send-otp")
     public ResponseEntity<?> sendOtp(@RequestBody Map<String, String> request) {
-        String email = request.get("email"); 
+
+        String email = request.get("email");
         String otp = String.valueOf((int)((Math.random() * 900000) + 100000));
-        
+
         try {
-            org.springframework.mail.SimpleMailMessage message = new org.springframework.mail.SimpleMailMessage();
+
+            System.out.println("MAIL USER = " + System.getenv("MAIL_USERNAME"));
+
+            org.springframework.mail.SimpleMailMessage message =
+                    new org.springframework.mail.SimpleMailMessage();
+
             message.setTo(email);
             message.setSubject("Your Login OTP");
-            message.setText("Your Modern Enquiry login code is: " + otp);
+            message.setText("Your OTP is: " + otp);
+
             mailSender.send(message);
 
             otpStorage.put(email, otp);
-            return ResponseEntity.ok(Map.of("message", "OTP Sent Successfully"));
+
+            return ResponseEntity.ok(Map.of(
+                    "message", "OTP Sent Successfully"
+            ));
+
         } catch (Exception e) {
+
             e.printStackTrace();
 
-            return ResponseEntity.status(500).body(
-                Map.of(
-                    "error", e.toString(),
-                    "message", e.getMessage()
-                )
-            );
+            return ResponseEntity.status(500).body(Map.of(
+                    "error", e.getMessage()
+            ));
         }
     }
 

@@ -17,7 +17,10 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/internal-meetings")
-@CrossOrigin(origins = "http://localhost:5173")
+@CrossOrigin(origins = {
+	    "http://localhost:5173",
+	    "https://visitor-dun.vercel.app"
+	})
 public class InternalMeetingController {
 
     @Autowired

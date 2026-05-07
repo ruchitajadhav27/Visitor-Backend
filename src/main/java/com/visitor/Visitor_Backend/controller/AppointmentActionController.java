@@ -7,7 +7,13 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/appointments/action")
-@CrossOrigin(origins = "http://localhost:5173", allowCredentials = "true")
+@CrossOrigin(
+	    origins = {
+	        "http://localhost:5173",
+	        "https://visitor-dun.vercel.app"
+	    },
+	    allowCredentials = "true"
+	)
 public class AppointmentActionController {
 
     @Autowired

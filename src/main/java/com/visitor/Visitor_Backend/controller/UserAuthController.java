@@ -39,6 +39,7 @@ public class UserAuthController {
             mailSender.send(message);
 
             otpStorage.put(email, otp);
+            System.out.println("OTP for " + email + " is: " + otp);
 
             return ResponseEntity.ok(Map.of(
                     "message", "OTP Sent Successfully"

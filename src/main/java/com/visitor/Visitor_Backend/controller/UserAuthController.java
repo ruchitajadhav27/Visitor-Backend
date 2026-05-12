@@ -27,7 +27,7 @@ public class UserAuthController {
 
         try {
 
-            System.out.println("MAIL USER = " + System.getenv("MAIL_USERNAME"));
+        	System.out.println("MAIL USER = " + System.getenv("SPRING_MAIL_USERNAME"));
 
             org.springframework.mail.SimpleMailMessage message =
                     new org.springframework.mail.SimpleMailMessage();

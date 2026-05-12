@@ -32,6 +32,7 @@ public class UserAuthController {
             org.springframework.mail.SimpleMailMessage message =
                     new org.springframework.mail.SimpleMailMessage();
 
+            message.setFrom("jadhavruchita27@gmail.com");
             message.setTo(email);
             message.setSubject("Your Login OTP");
             message.setText("Your OTP is: " + otp);

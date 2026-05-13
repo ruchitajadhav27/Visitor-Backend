@@ -45,6 +45,11 @@ public class UserAuthController {
         try {
 
             System.out.println("========= OTP API HIT =========");
+            
+            System.out.println("MAIL HOST = " + System.getProperty("spring.mail.host"));
+            System.out.println("MAIL PORT = " + System.getProperty("spring.mail.port"));
+            System.out.println("SENDER = " + senderEmail);
+            
             System.out.println("MAIL USER = " + senderEmail);
             System.out.println("Sending OTP to = " + email);
 

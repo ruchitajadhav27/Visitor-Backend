@@ -23,6 +23,12 @@ public class UserAuthController {
 
     @Value("${spring.mail.username}")
     private String senderEmail;
+    
+    @Value("${spring.mail.host}")
+    private String mailHost;
+
+    @Value("${spring.mail.port}")
+    private String mailPort;
 
     private Map<String, String> otpStorage = new HashMap<>();
 

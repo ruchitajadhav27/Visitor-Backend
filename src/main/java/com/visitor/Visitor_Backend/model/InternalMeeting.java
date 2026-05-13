@@ -15,6 +15,9 @@ public class InternalMeeting {
     private String startTime;
 	public String getProjectName() {
 		return projectName;
+		
+		
+		
 	}
 	public void setProjectName(String projectName) {
 		this.projectName = projectName;

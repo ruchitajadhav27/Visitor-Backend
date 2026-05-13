@@ -55,7 +55,7 @@ public class UserAuthController {
             System.out.println("MAIL HOST = " + mailHost);
             System.out.println("MAIL PORT = " + mailPort);
             System.out.println("SENDER = " + senderEmail);
-            System.out.println("SENDER = " + senderEmail);
+            
             
             System.out.println("MAIL USER = " + senderEmail);
             System.out.println("Sending OTP to = " + email);
@@ -74,8 +74,11 @@ public class UserAuthController {
                     "\n\nValid for a short time.\n\n" +
                     "Regards,\nModern Enquiry Team"
             );
+            
+            System.out.println("TRYING TO SEND MAIL...");
 
             mailSender.send(message);
+            System.out.println("MAIL SENT");
 
             otpStorage.put(email, otp);
 

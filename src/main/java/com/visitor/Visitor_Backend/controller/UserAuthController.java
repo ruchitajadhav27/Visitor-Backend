@@ -1,72 +1,131 @@
 package com.visitor.Visitor_Backend.controller;
 
 import org.springframework.web.bind.annotation.*;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.http.*;
-import org.springframework.web.client.RestTemplate;
-import java.util.*;
+import org.springframework.http.ResponseEntity;
+import org.springframework.mail.SimpleMailMessage;
+import org.springframework.mail.javamail.JavaMailSender;
+
+import java.util.HashMap;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/user")
-@CrossOrigin(origins = {"http://localhost:5173", "https://visitor-dun.vercel.app"})
+@CrossOrigin(origins = {
+        "http://localhost:5173",
+        "https://visitor-dun.vercel.app"
+})
 public class UserAuthController {
 
-    @Value("${brevo.api.key}")
-    private String brevoApiKey;
+    @Autowired
+    private JavaMailSender mailSender;
 
-    @Value("${brevo.sender.email}")
+    @Value("${spring.mail.username}")
     private String senderEmail;
+    
+    @Value("${spring.mail.host}")
+    private String mailHost;
+
+    @Value("${spring.mail.port}")
+    private String mailPort;
 
     private Map<String, String> otpStorage = new HashMap<>();
 
     @PostMapping("/send-otp")
-    public ResponseEntity<?> sendOtp(@RequestBody Map<String, String> request) {
+    public ResponseEntity<?> sendOtp(
+            @RequestBody Map<String, String> request) {
+
         String email = request.get("email");
-        if (email == null || email.isEmpty()) {
-            return ResponseEntity.badRequest().body(Map.of("error", "Email is required"));
+
+        if (email == null || email.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(
+                    Map.of("error", "Email is required")
+            );
         }
 
-        String otp = String.valueOf((int) ((Math.random() * 900000) + 100000));
+        String otp = String.valueOf(
+                (int) ((Math.random() * 900000) + 100000)
+        );
 
         try {
-            RestTemplate restTemplate = new RestTemplate();
-            String url = "https://api.brevo.com/v3/smtp/email";
 
-            // Prepare Brevo JSON Payload
-            Map<String, Object> payload = new HashMap<>();
-            payload.put("sender", Map.of("name", "Modern Enquiry Team", "email", senderEmail));
-            payload.put("to", List.of(Map.of("email", email)));
-            payload.put("subject", "Your Login OTP");
-            payload.put("textContent", "Hello, Your OTP for login is: " + otp);
+            System.out.println("========= OTP API HIT =========");
+            
+            System.out.println("MAIL HOST = " + mailHost);
+            System.out.println("MAIL PORT = " + mailPort);
+            System.out.println("SENDER = " + senderEmail);
+            
+            
+            System.out.println("MAIL USER = " + senderEmail);
+            System.out.println("Sending OTP to = " + email);
 
-            // Set Headers
-            HttpHeaders headers = new HttpHeaders();
-            headers.setContentType(MediaType.APPLICATION_JSON);
-            headers.set("api-key", brevoApiKey);
+            SimpleMailMessage message =
+                    new SimpleMailMessage();
 
-            HttpEntity<Map<String, Object>> entity = new HttpEntity<>(payload, headers);
+            // Use configured email from application.properties
+            message.setFrom(senderEmail);
 
-            // Send via HTTP POST
-            restTemplate.postForEntity(url, entity, String.class);
+            message.setTo(email);
+            message.setSubject("Your Login OTP");
+            message.setText(
+                    "Hello,\n\n" +
+                    "Your OTP for login is: " + otp +
+                    "\n\nValid for a short time.\n\n" +
+                    "Regards,\nModern Enquiry Team"
+            );
+            
+            System.out.println("TRYING TO SEND MAIL...");
+
+            mailSender.send(message);
+            System.out.println("MAIL SENT");
 
             otpStorage.put(email, otp);
-            return ResponseEntity.ok(Map.of("success", true, "message", "OTP Sent via API"));
+
+            System.out.println("OTP SENT SUCCESSFULLY");
+            System.out.println("OTP for " + email + " = " + otp);
+
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "OTP Sent Successfully"
+            ));
 
         } catch (Exception e) {
+
+            System.out.println("========= OTP MAIL ERROR =========");
             e.printStackTrace();
-            return ResponseEntity.status(500).body(Map.of("success", false, "error", "API Error: " + e.getMessage()));
+
+            return ResponseEntity.status(500).body(
+                    Map.of(
+                            "success", false,
+                            "error", e.toString()
+                    )
+            );
         }
     }
 
     @PostMapping("/verify-otp")
-    public ResponseEntity<?> verifyOtp(@RequestBody Map<String, String> request) {
+    public ResponseEntity<?> verifyOtp(
+            @RequestBody Map<String, String> request) {
+
         String email = request.get("email");
         String otp = request.get("otp");
 
-        if (otpStorage.containsKey(email) && otpStorage.get(email).equals(otp)) {
+        if (otpStorage.containsKey(email)
+                && otpStorage.get(email).equals(otp)) {
+
             otpStorage.remove(email);
-            return ResponseEntity.ok(Map.of("success", true));
+
+            return ResponseEntity.ok(
+                    Map.of("success", true)
+            );
         }
-        return ResponseEntity.status(401).body(Map.of("success", false, "message", "Invalid OTP"));
+
+        return ResponseEntity.status(401).body(
+                Map.of(
+                        "success", false,
+                        "message", "Invalid OTP"
+                )
+        );
     }
 }

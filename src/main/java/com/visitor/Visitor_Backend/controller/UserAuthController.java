@@ -38,23 +38,70 @@ public class UserAuthController {
 
         String email = request.get("email");
 
+        if (email == null || email.trim().isEmpty()) {
+            return ResponseEntity.badRequest().body(
+                    Map.of("error", "Email is required")
+            );
+        }
+
         String otp = String.valueOf(
                 (int) ((Math.random() * 900000) + 100000)
         );
 
-        // Store OTP
-        otpStorage.put(email, otp);
+        try {
 
-        // PRINT OTP IN LOGS
-        System.out.println("=================================");
-        System.out.println("OTP for " + email + " = " + otp);
-        System.out.println("=================================");
+            System.out.println("========= OTP API HIT =========");
+            
+            System.out.println("MAIL HOST = " + mailHost);
+            System.out.println("MAIL PORT = " + mailPort);
+            System.out.println("SENDER = " + senderEmail);
+            
+            
+            System.out.println("MAIL USER = " + senderEmail);
+            System.out.println("Sending OTP to = " + email);
 
-        return ResponseEntity.ok(Map.of(
-                "success", true,
-                "message", "OTP Generated",
-                "otp", otp   // optional
-        ));
+            SimpleMailMessage message =
+                    new SimpleMailMessage();
+
+            // Use configured email from application.properties
+            message.setFrom(senderEmail);
+
+            message.setTo(email);
+            message.setSubject("Your Login OTP");
+            message.setText(
+                    "Hello,\n\n" +
+                    "Your OTP for login is: " + otp +
+                    "\n\nValid for a short time.\n\n" +
+                    "Regards,\nModern Enquiry Team"
+            );
+            
+            System.out.println("TRYING TO SEND MAIL...");
+
+            mailSender.send(message);
+            System.out.println("MAIL SENT");
+
+            otpStorage.put(email, otp);
+
+            System.out.println("OTP SENT SUCCESSFULLY");
+            System.out.println("OTP for " + email + " = " + otp);
+
+            return ResponseEntity.ok(Map.of(
+                    "success", true,
+                    "message", "OTP Sent Successfully"
+            ));
+
+        } catch (Exception e) {
+
+            System.out.println("========= OTP MAIL ERROR =========");
+            e.printStackTrace();
+
+            return ResponseEntity.status(500).body(
+                    Map.of(
+                            "success", false,
+                            "error", e.toString()
+                    )
+            );
+        }
     }
 
     @PostMapping("/verify-otp")

@@ -1,11 +1,12 @@
 package com.visitor.Visitor_Backend.controller;
 
-import org.springframework.web.bind.annotation.*;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.ResponseEntity;
-import org.springframework.mail.SimpleMailMessage;
-import org.springframework.mail.javamail.JavaMailSender;
+import org.springframework.web.bind.annotation.*;
+
+import okhttp3.MediaType;
+import okhttp3.OkHttpClient;
+import okhttp3.Request;
+import okhttp3.Response;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -18,29 +19,22 @@ import java.util.Map;
 })
 public class UserAuthController {
 
-    @Autowired
-    private JavaMailSender mailSender;
-
-    @Value("${spring.mail.username}")
-    private String senderEmail;
-    
-    @Value("${spring.mail.host}")
-    private String mailHost;
-
-    @Value("${spring.mail.port}")
-    private String mailPort;
-
     private Map<String, String> otpStorage = new HashMap<>();
 
     @PostMapping("/send-otp")
     public ResponseEntity<?> sendOtp(
-            @RequestBody Map<String, String> request) {
+            @org.springframework.web.bind.annotation.RequestBody
+            Map<String, String> requestData) {
 
-        String email = request.get("email");
+        String email = requestData.get("email");
 
         if (email == null || email.trim().isEmpty()) {
+
             return ResponseEntity.badRequest().body(
-                    Map.of("error", "Email is required")
+                    Map.of(
+                            "success", false,
+                            "message", "Email is required"
+                    )
             );
         }
 
@@ -51,66 +45,78 @@ public class UserAuthController {
         try {
 
             System.out.println("========= OTP API HIT =========");
-            
-            System.out.println("MAIL HOST = " + mailHost);
-            System.out.println("MAIL PORT = " + mailPort);
-            System.out.println("SENDER = " + senderEmail);
-            
-            
-            System.out.println("MAIL USER = " + senderEmail);
             System.out.println("Sending OTP to = " + email);
 
-            SimpleMailMessage message =
-                    new SimpleMailMessage();
+            OkHttpClient client = new OkHttpClient();
 
-            // Use configured email from application.properties
-            message.setFrom(senderEmail);
+            String json = """
+            {
+              "from": "onboarding@resend.dev",
+              "to": ["%s"],
+              "subject": "Your Login OTP",
+              "html": "<h2>Your OTP is: %s</h2>"
+            }
+            """.formatted(email, otp);
 
-            message.setTo(email);
-            message.setSubject("Your Login OTP");
-            message.setText(
-                    "Hello,\n\n" +
-                    "Your OTP for login is: " + otp +
-                    "\n\nValid for a short time.\n\n" +
-                    "Regards,\nModern Enquiry Team"
-            );
-            
-            System.out.println("TRYING TO SEND MAIL...");
+            okhttp3.RequestBody body =
+                    okhttp3.RequestBody.create(
+                            json,
+                            MediaType.parse("application/json")
+                    );
 
-            mailSender.send(message);
-            System.out.println("MAIL SENT");
+            Request resendRequest = new Request.Builder()
+                    .url("https://api.resend.com/emails")
+                    .post(body)
+                    .addHeader(
+                            "Authorization",
+                            "Bearer " + System.getenv("RESEND_API_KEY")
+                    )
+                    .addHeader("Content-Type", "application/json")
+                    .build();
+
+            Response response =
+                    client.newCall(resendRequest).execute();
+
+            String responseBody = response.body().string();
+
+            System.out.println("========= RESEND RESPONSE =========");
+            System.out.println(responseBody);
 
             otpStorage.put(email, otp);
 
             System.out.println("OTP SENT SUCCESSFULLY");
             System.out.println("OTP for " + email + " = " + otp);
 
-            return ResponseEntity.ok(Map.of(
-                    "success", true,
-                    "message", "OTP Sent Successfully"
-            ));
+            return ResponseEntity.ok(
+                    Map.of(
+                            "success", true,
+                            "message", "OTP Sent Successfully"
+                    )
+            );
 
         } catch (Exception e) {
 
             System.out.println("========= OTP MAIL ERROR =========");
+
             e.printStackTrace();
 
             return ResponseEntity.status(500).body(
-            	    Map.of(
-            	        "success", false,
-            	        "message", e.getMessage(),
-            	        "fullError", e.toString()
-            	    )
-            	);
+                    Map.of(
+                            "success", false,
+                            "message", e.getMessage(),
+                            "fullError", e.toString()
+                    )
+            );
         }
     }
 
     @PostMapping("/verify-otp")
     public ResponseEntity<?> verifyOtp(
-            @RequestBody Map<String, String> request) {
+            @org.springframework.web.bind.annotation.RequestBody
+            Map<String, String> requestData) {
 
-        String email = request.get("email");
-        String otp = request.get("otp");
+        String email = requestData.get("email");
+        String otp = requestData.get("otp");
 
         if (otpStorage.containsKey(email)
                 && otpStorage.get(email).equals(otp)) {

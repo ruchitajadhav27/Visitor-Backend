@@ -18,8 +18,11 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
     @Override
     public void registerStompEndpoints(StompEndpointRegistry registry) {
-        registry.addEndpoint("/ws-notifications")
-                .setAllowedOrigins("http://localhost:5173") // Use setAllowedOrigins instead of setAllowedOriginPatterns for SockJS
+    	 registry.addEndpoint("/ws-notifications")
+         .setAllowedOrigins(
+                 "http://localhost:5173",
+                 "https://visitor-dun.vercel.app"
+         )// Use setAllowedOrigins instead of setAllowedOriginPatterns for SockJS
                 .setAllowedOriginPatterns("*") // Alternatively, use patterns if you have dynamic subdomains
                 .withSockJS();
     }

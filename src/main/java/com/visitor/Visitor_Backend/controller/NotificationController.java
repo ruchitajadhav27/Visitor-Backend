@@ -16,7 +16,10 @@ import com.visitor.Visitor_Backend.repository.NotificationRepository;
 
 @RestController
 @RequestMapping("/api/notifications")
-@CrossOrigin(origins = "http://localhost:5173") // Allow your React app
+@CrossOrigin(origins = {
+	    "http://localhost:5173",
+	    "https://visitor-dun.vercel.app"
+	})// Allow your React app
 public class NotificationController {
     @Autowired
     private NotificationRepository repo;

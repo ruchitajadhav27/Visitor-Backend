@@ -1,6 +1,7 @@
 package com.visitor.Visitor_Backend.controller;
 
 import com.visitor.Visitor_Backend.model.Enquiry;
+
 import com.visitor.Visitor_Backend.service.EnquiryService;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.ResponseEntity;
@@ -10,7 +11,13 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/contact")
-@CrossOrigin(origins = "http://localhost:5173" , allowCredentials = "true") // Allows your React frontend to connect
+@CrossOrigin(
+	    origins = {
+	        "http://localhost:5173",
+	        "https://visitor-dun.vercel.app"
+	    },
+	    allowCredentials = "true"
+	)   // Allows your React frontend to connect
 public class EnquiryController {
 
     @Autowired

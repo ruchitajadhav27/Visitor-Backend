@@ -9,8 +9,12 @@ public class WebConfig implements WebMvcConfigurer {
 
     @Override
     public void addCorsMappings(CorsRegistry registry) {
-        registry.addMapping("/**") // Allow all endpoints
-                .allowedOrigins("http://localhost:5173") // Your React URL
+        registry.addMapping("/**")
+                .allowedOrigins(
+                    "http://localhost:5173",   // local React (Vite)
+                    "http://localhost:3000",   // (optional if using CRA)
+                    "https://visitor-dun.vercel.app" // deployed frontend
+                )
                 .allowedMethods("GET", "POST", "PUT", "DELETE", "OPTIONS")
                 .allowedHeaders("*")
                 .allowCredentials(true);

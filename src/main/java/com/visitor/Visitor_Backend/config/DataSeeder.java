@@ -19,8 +19,8 @@ public class DataSeeder implements CommandLineRunner {
         // Check if an admin already exists so we don't create duplicates
         if (adminRepository.count() == 0) {
             Admin admin = new Admin();
-            admin.setUsername("ruchita"); // Set your permanent username
-            admin.setPassword("ruchi123"); // Set your permanent password
+            admin.setUsername("admin"); // Set your permanent username
+            admin.setPassword("admin"); // Set your permanent password
             
             adminRepository.save(admin);
             System.out.println("--- Admin account created permanently in MongoDB ---");

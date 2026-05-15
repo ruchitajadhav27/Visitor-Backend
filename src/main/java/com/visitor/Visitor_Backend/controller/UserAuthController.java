@@ -96,11 +96,12 @@ public class UserAuthController {
             e.printStackTrace();
 
             return ResponseEntity.status(500).body(
-                    Map.of(
-                            "success", false,
-                            "error", e.toString()
-                    )
-            );
+            	    Map.of(
+            	        "success", false,
+            	        "message", e.getMessage(),
+            	        "fullError", e.toString()
+            	    )
+            	);
         }
     }
 

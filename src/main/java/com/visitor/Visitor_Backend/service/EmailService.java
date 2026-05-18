@@ -253,10 +253,10 @@ public class EmailService {
     ) {
 
         String backendBaseUrl =
-                "http://localhost:8080/api/appointments/action";
+        		"https://visitor-backend-3-fbww.onrender.com/api/appointments/action";
 
         String frontendUrl =
-                "http://localhost:5173/my-meetings";
+        		"https://visitor-dun.vercel.app/my-meetings";
 
         return
                 "<a href='"

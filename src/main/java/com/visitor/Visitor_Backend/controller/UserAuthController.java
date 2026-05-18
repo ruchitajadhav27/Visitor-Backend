@@ -1,12 +1,10 @@
 package com.visitor.Visitor_Backend.controller;
 
-import org.springframework.http.ResponseEntity;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.*;
 import org.springframework.web.bind.annotation.*;
-
-import okhttp3.MediaType;
-import okhttp3.OkHttpClient;
-import okhttp3.Request;
-import okhttp3.Response;
+import org.springframework.web.client.HttpClientErrorException;
+import org.springframework.web.client.RestTemplate;
 
 import java.util.HashMap;
 import java.util.Map;
@@ -19,23 +17,26 @@ import java.util.Map;
 })
 public class UserAuthController {
 
-    private Map<String, String> otpStorage = new HashMap<>();
+    @Value("${brevo.api.key}")
+    private String BREVO_API_KEY;
+
+    @Value("${brevo.sender.email}")
+    private String SENDER_EMAIL;
+
+    private final Map<String, String> otpStorage = new HashMap<>();
 
     @PostMapping("/send-otp")
     public ResponseEntity<?> sendOtp(
-            @org.springframework.web.bind.annotation.RequestBody
-            Map<String, String> requestData) {
+            @RequestBody Map<String, String> requestData) {
 
         String email = requestData.get("email");
 
         if (email == null || email.trim().isEmpty()) {
-
-            return ResponseEntity.badRequest().body(
-                    Map.of(
-                            "success", false,
-                            "message", "Email is required"
-                    )
-            );
+            return ResponseEntity.badRequest()
+                    .body(Map.of(
+                            "error",
+                            "Email is required"
+                    ));
         }
 
         String otp = String.valueOf(
@@ -44,95 +45,181 @@ public class UserAuthController {
 
         try {
 
-            System.out.println("========= OTP API HIT =========");
-            System.out.println("Sending OTP to = " + email);
+            System.out.println(
+                    "========= SENDING VIA BREVO ========="
+            );
 
-            OkHttpClient client = new OkHttpClient();
+            RestTemplate restTemplate =
+                    new RestTemplate();
 
-            String json = """
-            {
-              "from": "onboarding@resend.dev",
-              "to": ["%s"],
-              "subject": "Your Login OTP",
-              "html": "<h2>Your OTP is: %s</h2>"
-            }
-            """.formatted(email, otp);
+            String url =
+                    "https://api.brevo.com/v3/smtp/email";
 
-            okhttp3.RequestBody body =
-                    okhttp3.RequestBody.create(
-                            json,
-                            MediaType.parse("application/json")
+            HttpHeaders headers =
+                    new HttpHeaders();
+
+            headers.setContentType(
+                    MediaType.APPLICATION_JSON
+            );
+
+            headers.set(
+                    "api-key",
+                    BREVO_API_KEY
+            );
+
+            headers.set(
+                    "accept",
+                    "application/json"
+            );
+
+            Map<String, Object> body =
+                    new HashMap<>();
+
+            body.put(
+                    "sender",
+                    Map.of(
+                            "name", "Nexus",
+                            "email", SENDER_EMAIL
+                    )
+            );
+
+            body.put(
+                    "to",
+                    new Object[]{
+                            Map.of(
+                                    "email",
+                                    email
+                            )
+                    }
+            );
+
+            body.put(
+                    "subject",
+                    "Login OTP"
+            );
+
+            body.put(
+                    "htmlContent",
+                    "<html><body>"
+                            + "<h2>Your OTP is: "
+                            + otp
+                            + "</h2>"
+                            + "<p>Valid for login.</p>"
+                            + "</body></html>"
+            );
+
+            HttpEntity<Map<String, Object>>
+                    entity =
+                    new HttpEntity<>(
+                            body,
+                            headers
                     );
 
-            Request resendRequest = new Request.Builder()
-                    .url("https://api.resend.com/emails")
-                    .post(body)
-                    .addHeader(
-                            "Authorization",
-                            "Bearer " + System.getenv("RESEND_API_KEY")
-                    )
-                    .addHeader("Content-Type", "application/json")
-                    .build();
+            ResponseEntity<String>
+                    response =
+                    restTemplate.postForEntity(
+                            url,
+                            entity,
+                            String.class
+                    );
 
-            Response response =
-                    client.newCall(resendRequest).execute();
+            System.out.println(
+                    "BREVO SUCCESS RESPONSE: "
+                            + response.getBody()
+            );
 
-            String responseBody = response.body().string();
-
-            System.out.println("========= RESEND RESPONSE =========");
-            System.out.println(responseBody);
-
-            otpStorage.put(email, otp);
-
-            System.out.println("OTP SENT SUCCESSFULLY");
-            System.out.println("OTP for " + email + " = " + otp);
+            otpStorage.put(
+                    email,
+                    otp
+            );
 
             return ResponseEntity.ok(
                     Map.of(
-                            "success", true,
-                            "message", "OTP Sent Successfully"
+                            "success",
+                            true
                     )
             );
+
+        } catch (
+                HttpClientErrorException e
+        ) {
+
+            System.out.println(
+                    "--- BREVO ERROR DETAILS ---"
+            );
+
+            System.out.println(
+                    "Status Code: "
+                            + e.getStatusCode()
+            );
+
+            System.out.println(
+                    "Error Body: "
+                            + e.getResponseBodyAsString()
+            );
+
+            return ResponseEntity
+                    .status(
+                            e.getStatusCode()
+                    )
+                    .body(
+                            e.getResponseBodyAsString()
+                    );
 
         } catch (Exception e) {
 
-            System.out.println("========= OTP MAIL ERROR =========");
-
             e.printStackTrace();
 
-            return ResponseEntity.status(500).body(
-                    Map.of(
-                            "success", false,
-                            "message", e.getMessage(),
-                            "fullError", e.toString()
-                    )
-            );
+            return ResponseEntity
+                    .status(500)
+                    .body(
+                            Map.of(
+                                    "error",
+                                    e.getMessage()
+                            )
+                    );
         }
     }
 
     @PostMapping("/verify-otp")
     public ResponseEntity<?> verifyOtp(
-            @org.springframework.web.bind.annotation.RequestBody
-            Map<String, String> requestData) {
+            @RequestBody
+            Map<String, String> request
+    ) {
 
-        String email = requestData.get("email");
-        String otp = requestData.get("otp");
+        String email =
+                request.get("email");
 
-        if (otpStorage.containsKey(email)
-                && otpStorage.get(email).equals(otp)) {
+        String otp =
+                request.get("otp");
+
+        if (
+                otpStorage.containsKey(email)
+                        &&
+                        otpStorage
+                                .get(email)
+                                .equals(otp)
+        ) {
 
             otpStorage.remove(email);
 
             return ResponseEntity.ok(
-                    Map.of("success", true)
+                    Map.of(
+                            "success",
+                            true
+                    )
             );
         }
 
-        return ResponseEntity.status(401).body(
-                Map.of(
-                        "success", false,
-                        "message", "Invalid OTP"
-                )
-        );
+        return ResponseEntity
+                .status(401)
+                .body(
+                        Map.of(
+                                "success",
+                                false,
+                                "message",
+                                "Invalid OTP"
+                        )
+                );
     }
 }

@@ -45,13 +45,18 @@ public class AppointmentController {
     private void sendAdminNotification(String message, Appointment app) {
         try {
             // 1. Create the Persistent Notification Object for MongoDB
-            Notification dbNotif = new Notification();
+        	Notification dbNotif = new Notification();
             dbNotif.setRecipient("ADMIN"); 
             dbNotif.setMessage(message);
             dbNotif.setVisitorName(app.getVisitorName());
             dbNotif.setPurpose(app.getPurpose());
             dbNotif.setDateTime(app.getDate() + " at " + app.getTimeIn());
-            dbNotif.setReceivedAt(LocalTime.now().format(DateTimeFormatter.ofPattern("hh:mm a")));
+            
+            // DATE BEFORE TIME: "18 May 2026, 12:05 PM" format use kiya hai
+            java.time.LocalDateTime now = java.time.LocalDateTime.now();
+            java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("dd MMM yyyy, hh:mm a", java.util.Locale.ENGLISH);
+            dbNotif.setReceivedAt(now.format(formatter));
+            
             dbNotif.setRead(false);
 
             // 2. SAVE to MongoDB (This makes it show up on your AdminNotificationPage)
@@ -297,15 +302,18 @@ public class AppointmentController {
             if (!userMessage.isEmpty()) {
                 // --- NEW: PERSISTENT SAVE FOR USER ---
                 // Create the notification object to be stored in MongoDB
-                Notification userNotifDb = new Notification();
-                userNotifDb.setRecipient(saved.getEmail().toLowerCase().trim()); // Key for the user to find it
-                userNotifDb.setMessage(userMessage);
-                userNotifDb.setStatus(newStatus);
-                userNotifDb.setReceivedAt(LocalTime.now().format(DateTimeFormatter.ofPattern("hh:mm a")));
-                userNotifDb.setRead(false);
+            	Notification userNotifDb = new Notification();
+            	userNotifDb.setRecipient(saved.getEmail().toLowerCase().trim());
+            	userNotifDb.setMessage(userMessage);
+            	userNotifDb.setStatus(newStatus);
 
-                // Save to database so fetchNotifications() can find it later
-                notificationRepository.save(userNotifDb);
+            	// Format: "18 May 2026, 12:05 PM"
+            	java.time.LocalDateTime now = java.time.LocalDateTime.now();
+            	java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("dd MMM yyyy, hh:mm a", java.util.Locale.ENGLISH);
+            	userNotifDb.setReceivedAt(now.format(formatter));
+
+            	userNotifDb.setRead(false);
+            	notificationRepository.save(userNotifDb);
 
                 // --- WEBSOCKET PUSH ---
                 String destination = "/topic/user-" + saved.getEmail().toLowerCase().trim();

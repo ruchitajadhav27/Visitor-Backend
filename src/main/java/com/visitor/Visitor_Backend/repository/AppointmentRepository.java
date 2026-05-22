@@ -8,4 +8,5 @@ public interface AppointmentRepository extends MongoRepository<Appointment, Stri
     List<Appointment> findByAvailableTrue();
     List<Appointment> findByAvailableFalse();
     List<Appointment> findByEmail(String email);
+    List<Appointment> findByStatusAndTimeOut(String status, String timeOut);
 }

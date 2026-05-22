@@ -14,6 +14,7 @@ import com.visitor.Visitor_Backend.model.SubscriptionToken;
 import com.visitor.Visitor_Backend.repository.AppointmentRepository;
 import com.visitor.Visitor_Backend.repository.SubscriptionTokenRepository;
 
+
 @Service
 public class PushNotificationSchedulerService {
 

@@ -1,12 +1,14 @@
 package com.visitor.Visitor_Backend.service;
 
 import java.util.List;
+
 import java.time.LocalTime;
 import java.time.format.DateTimeFormatter;
 
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
+import java.time.ZoneId;
 
 import com.visitor.Visitor_Backend.model.Appointment;
 import com.visitor.Visitor_Backend.model.SubscriptionToken;
@@ -29,7 +31,9 @@ public class PushNotificationSchedulerService {
     @Scheduled(cron = "0 * * * * ?")
     public void checkTimeOutMeetings() {
         
-        LocalTime now = LocalTime.now();
+    	LocalTime now = LocalTime.now(
+    	        ZoneId.of("Asia/Kolkata")
+    	);
         String timeUpper = now.format(DateTimeFormatter.ofPattern("hh:mm a")); // Ex: "04:44 PM"
         String timeLower = timeUpper.toLowerCase();                           // Ex: "04:44 pm"
         String time24 = now.format(DateTimeFormatter.ofPattern("HH:mm"));      // Ex: "16:44"

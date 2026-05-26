@@ -1,17 +1,16 @@
 package com.visitor.Visitor_Backend.service;
 
-import com.visitor.Visitor_Backend.model.SubscriptionToken;
 import nl.martijndwars.webpush.Notification;
 import nl.martijndwars.webpush.PushService;
 import org.bouncycastle.jce.provider.BouncyCastleProvider;
-import org.springframework.beans.factory.InitializingBean; // <-- Naya built-in import
+import org.springframework.beans.factory.InitializingBean;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 
 import java.security.Security;
 
 @Service
-public class WebPushService implements InitializingBean { // <-- Interface implement kiya
+public class WebPushService implements InitializingBean {
 
     @Value("${vapid.public.key}")
     private String publicKey;
@@ -24,33 +23,58 @@ public class WebPushService implements InitializingBean { // <-- Interface imple
 
     private PushService pushService;
 
-    // @PostConstruct ko poori tarah hata diya, ab yeh method automatic chalega
     @Override
-    public void afterPropertiesSet() throws Exception {
-        if (Security.getProvider(BouncyCastleProvider.PROVIDER_NAME) == null) {
-            Security.addProvider(new BouncyCastleProvider());
-        }
+    public void afterPropertiesSet() {
+
         try {
-            pushService = new PushService(publicKey, privateKey, subject);
-            System.out.println("✅ VAPID Keys initialized successfully using InitializingBean!");
+
+            if (Security.getProvider(BouncyCastleProvider.PROVIDER_NAME) == null) {
+                Security.addProvider(new BouncyCastleProvider());
+            }
+
+            pushService = new PushService();
+
+            pushService.setSubject(subject);
+            pushService.setPublicKey(publicKey);
+            pushService.setPrivateKey(privateKey);
+
+            System.out.println("✅ VAPID initialized");
+
         } catch (Exception e) {
-            System.err.println("VAPID Keys initialization failed: " + e.getMessage());
+            e.printStackTrace();
         }
     }
 
-    public void sendPushNotification(String endpoint, String p256dh, String auth, String messageJson) {
-        try {
-            Notification notification = new Notification(
-                endpoint,
-                p256dh,
-                auth,
-                messageJson
-            );
+    public void sendPushNotification(
+            String endpoint,
+            String p256dh,
+            String auth,
+            String messageJson) {
 
+        try {
+
+            System.out.println("\n=========== PUSH START ===========");
+            System.out.println("Endpoint: " + endpoint);
+            System.out.println("Payload: " + messageJson);
+
+            Notification notification =
+                    new Notification(
+                            endpoint,
+                            p256dh,
+                            auth,
+                            messageJson.getBytes()
+                    );
+
+            // IMPORTANT
             pushService.send(notification);
-            System.out.println("Push notification successfully sent via WNS/Google!");
+
+            System.out.println("✅ PUSH SENT SUCCESSFULLY");
+            System.out.println("==================================");
+
         } catch (Exception e) {
-            System.err.println("Failed to send web push: " + e.getMessage());
+
+            System.out.println("❌ PUSH FAILED");
+            e.printStackTrace();
         }
     }
 }

@@ -42,10 +42,22 @@ public class ReminderSchedulerService {
     // Har minute par check karega background engines ko
     @Scheduled(cron = "0 * * * * *")
     public void execute15MinRemindersEngine() {
-        String todayStr = LocalDate.now().toString(); 
+        // 🌟 FIX 1: ZoneId define karein taaki live Docker/Render server hamesha India ka time nikale
+        java.time.ZoneId indiaZone = java.time.ZoneId.of("Asia/Kolkata");
+        
+        // 🌟 FIX 2: Local dates aur times ko India Zone ke hisab se nikalna shuru karein
+        String todayStr = java.time.LocalDate.now(indiaZone).toString(); 
         
         DateTimeFormatter tf = DateTimeFormatter.ofPattern("hh:mm a", Locale.ENGLISH);
-        LocalTime executionTargetTime = LocalTime.now().plusMinutes(15).truncatedTo(ChronoUnit.MINUTES);
+        
+        // 🌟 FIX 3: Current time bhi India Zone se lekar 15 mins aage ka target banayein
+        LocalTime executionTargetTime = java.time.LocalTime.now(indiaZone).plusMinutes(15).truncatedTo(ChronoUnit.MINUTES);
+
+        // Printing logs for verification inside live server
+        System.out.println("=== ⏰ SCHEDULER START ===");
+        System.out.println("🔍 Current System Time Formats to Match (IST):");
+        System.out.println("   👉 Upper: [" + executionTargetTime.format(DateTimeFormatter.ofPattern("hh:mm a")) + "]");
+        System.out.println("   👉 24-Hr: [" + executionTargetTime.format(DateTimeFormatter.ofPattern("HH:mm")) + "]");
 
         // Fetch targets where status is 'Approved' and reminderSent is false
         List<Appointment> todaysPendingQueue = appointmentRepo.findByDateAndStatusAndReminderSentFalse(todayStr, "Approved");
@@ -72,7 +84,8 @@ public class ReminderSchedulerService {
                     userNotifDb.setMessage(wsAlertPayload);
                     userNotifDb.setStatus("Reminder15Min");
 
-                    java.time.LocalDateTime now = java.time.LocalDateTime.now();
+                    // 🌟 FIX 4: DB entry ka receivedAt time bhi India ka hona chahiye
+                    java.time.LocalDateTime now = java.time.LocalDateTime.now(indiaZone);
                     java.time.format.DateTimeFormatter dtf = java.time.format.DateTimeFormatter.ofPattern("dd MMM yyyy, hh:mm a", Locale.ENGLISH);
                     userNotifDb.setReceivedAt(now.format(dtf));
                     userNotifDb.setRead(false);
@@ -93,6 +106,7 @@ public class ReminderSchedulerService {
                 System.err.println("Error processing 15min telemetry for ID " + appointment.getId() + " : " + ex.getMessage());
             }
         }
+        System.out.println("=== ⏰ SCHEDULER END ===");
     }
 
     /**

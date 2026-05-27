@@ -278,50 +278,52 @@ public class AppointmentController {
     public ResponseEntity<Appointment> updateStatus(@PathVariable String id, @RequestBody Map<String, String> payload) {
         return repository.findById(id).map(appointment -> {
             String newStatus = payload.get("status");
+            
+            // --- DYNAMIC PASS GENERATION ON ADMIN APPROVAL ---
+            if ("Approved".equalsIgnoreCase(newStatus) && appointment.getTokenNumber() == null) {
+                List<Appointment> todaysBookings = repository.findByDateAndStatus(appointment.getDate(), "Approved");
+                int nextQueueIdx = todaysBookings.size() + 1;
+                
+                appointment.setQueuePosition(nextQueueIdx);
+                appointment.setTokenNumber("TK-" + appointment.getDate().replace("-", "") + "-" + String.format("%03d", nextQueueIdx));
+                appointment.setReminderSent(false); // Enable tracking for the 15-minute cron job
+            }
+
             appointment.setStatus(newStatus);
             Appointment saved = repository.save(appointment);
-         // ✅ ADD THIS LINE HERE
+            
+            // Purana verification approval mail unchanged chalega
             emailService.sendVisitorStatusEmail(saved);
 
             String userMessage = "";
             if ("Approved".equalsIgnoreCase(newStatus)) {
+                // Aapka standard first approval text unchanged
                 userMessage = "Meeting Approved! Please arrive at " + saved.getTimeIn() + 
                               " on " + saved.getDate() + ". Kindly reach 5 mins before time.";
             } else if ("Declined".equalsIgnoreCase(newStatus)) {
-                userMessage = "Sorry " + saved.getVisitorName() + 
-                              ", your meeting for " + saved.getDate() + " is cancelled. " + 
-                              "Please select another time slot to meet.";
+                userMessage = "Sorry " + saved.getVisitorName() + ", your meeting for " + saved.getDate() + " is cancelled. Please select another time slot to meet.";
             } else if ("Visited".equalsIgnoreCase(newStatus)) {
-                userMessage = "Thank you for visiting us, " + saved.getVisitorName() + 
-                              "! It was a pleasure meeting you. Have a great day ahead!";
+                userMessage = "Thank you for visiting us, " + saved.getVisitorName() + "! It was a pleasure meeting you. Have a great day ahead!";
             } else if ("Not Visited".equalsIgnoreCase(newStatus)) {
-                userMessage = "You missed your appointment scheduled for " + saved.getTimeIn() + 
-                              ". If you still need to meet, please reschedule a new slot.";
+                userMessage = "You missed your appointment scheduled for " + saved.getTimeIn() + ". If you still need to meet, please reschedule a new slot.";
             }
 
             if (!userMessage.isEmpty()) {
-                // --- NEW: PERSISTENT SAVE FOR USER ---
-                // Create the notification object to be stored in MongoDB
-            	Notification userNotifDb = new Notification();
-            	userNotifDb.setRecipient(saved.getEmail().toLowerCase().trim());
-            	userNotifDb.setMessage(userMessage);
-            	userNotifDb.setStatus(newStatus);
+                Notification userNotifDb = new Notification();
+                userNotifDb.setRecipient(saved.getEmail().toLowerCase().trim());
+                userNotifDb.setMessage(userMessage);
+                userNotifDb.setStatus(newStatus);
 
-            	// Format: "18 May 2026, 12:05 PM"
-            	java.time.LocalDateTime now = java.time.LocalDateTime.now();
-            	java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("dd MMM yyyy, hh:mm a", java.util.Locale.ENGLISH);
-            	userNotifDb.setReceivedAt(now.format(formatter));
+                java.time.LocalDateTime now = java.time.LocalDateTime.now();
+                java.time.format.DateTimeFormatter formatter = java.time.format.DateTimeFormatter.ofPattern("dd MMM yyyy, hh:mm a", java.util.Locale.ENGLISH);
+                userNotifDb.setReceivedAt(now.format(formatter));
+                userNotifDb.setRead(false);
+                notificationRepository.save(userNotifDb);
 
-            	userNotifDb.setRead(false);
-            	notificationRepository.save(userNotifDb);
-
-                // --- WEBSOCKET PUSH ---
                 String destination = "/topic/user-" + saved.getEmail().toLowerCase().trim();
-                // Send the actual DB object so ID and status are included
                 messagingTemplate.convertAndSend(destination, userNotifDb);
             }
 
-            // Keep your admin notification logic
             sendAdminNotification("Status updated to " + newStatus + " for " + saved.getVisitorName(), saved);
 
             return ResponseEntity.ok(saved);

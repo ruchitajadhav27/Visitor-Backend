@@ -22,9 +22,10 @@ import java.util.Map;
 
 @RestController
 @RequestMapping("/api/appointments")
-@CrossOrigin(origins = {
+@CrossOrigin(originPatterns = {
     "http://localhost:5173",
-    "https://visitor-dun.vercel.app"
+    "https://visitor-dun.vercel.app",
+    "https://*.vercel.app"
 })
 public class AppointmentController {
 
@@ -138,14 +139,27 @@ public class AppointmentController {
         }).toList();
     }
 
+    @GetMapping("/detail/{id}")
+    public ResponseEntity<Appointment> getAppointmentDetail(@PathVariable String id) {
+        return repository.findById(id)
+                .map(ResponseEntity::ok)
+                .orElse(ResponseEntity.notFound().build());
+    }
+
     @GetMapping("/booked")
     public List<Appointment> getBookedAppointments() {
-        return repository.findAll().stream().filter(slot -> !slot.isAvailable()).toList();
+        // findByAvailableFalse = direct MongoDB query, much faster than findAll + filter
+        return repository.findByAvailableFalse().stream()
+                .map(this::stripHeavyFields)
+                .toList();
     }
     
     @GetMapping("/all")
     public List<Appointment> getAllAppointments() {
-        return repository.findAll();
+        // Also use findByAvailableFalse — /all is only used for history, empty slots not needed
+        return repository.findByAvailableFalse().stream()
+                .map(this::stripHeavyFields)
+                .toList();
     }
 
     // --- BOOKING LOGIC ---
@@ -164,6 +178,11 @@ public class AppointmentController {
             slot.setPurpose(data.getPurpose());
             slot.setWhomToMeet(data.getWhomToMeet());
             slot.setVisitorPhoto(data.getVisitorPhoto());
+            slot.setResumeFile(data.getResumeFile());
+            slot.setGender(data.getGender());
+            slot.setIdProof(data.getIdProof());
+            slot.setReference(data.getReference());
+            slot.setRemark(data.getRemark());
             slot.setAvailable(false);
             slot.setStatus("Pending");
 
@@ -262,7 +281,11 @@ public class AppointmentController {
 
     @GetMapping("/my-meetings")
     public ResponseEntity<List<Appointment>> getMyMeetings(@RequestParam String email) {
-        return ResponseEntity.ok(repository.findByEmail(email));
+        return ResponseEntity.ok(
+            repository.findByEmail(email).stream()
+                .map(this::stripHeavyFields)
+                .toList()
+        );
     }
 
     @PutMapping("/status/{id}")
@@ -316,6 +339,15 @@ public class AppointmentController {
 
             return ResponseEntity.ok(saved);
         }).orElse(ResponseEntity.notFound().build());
+    }
+
+    // Strip visitorPhoto and resumeFile from list responses — never lose the real ID
+    private Appointment stripHeavyFields(Appointment a) {
+        boolean hasResume = a.getResumeFile() != null && !a.getResumeFile().isEmpty();
+        a.setHasResumeFile(hasResume);
+        a.setVisitorPhoto(null);
+        a.setResumeFile(null);
+        return a;
     }
 
     public void sendConfirmationNotification(Appointment app) {

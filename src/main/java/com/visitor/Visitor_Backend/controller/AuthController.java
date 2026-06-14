@@ -11,9 +11,10 @@ import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/auth")
-@CrossOrigin(origins = {
+@CrossOrigin(originPatterns = {
 	    "http://localhost:5173",
-	    "https://visitor-dun.vercel.app"
+	    "https://visitor-dun.vercel.app",
+	    "https://*.vercel.app"
 	})
 public class AuthController {
 

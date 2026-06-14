@@ -12,12 +12,13 @@ import java.util.Map;
 @RestController
 @RequestMapping("/api/contact")
 @CrossOrigin(
-	    origins = {
+	    originPatterns = {
 	        "http://localhost:5173",
-	        "https://visitor-dun.vercel.app"
+	        "https://visitor-dun.vercel.app",
+	        "https://*.vercel.app"
 	    },
 	    allowCredentials = "true"
-	)   // Allows your React frontend to connect
+	)
 public class EnquiryController {
 
     @Autowired

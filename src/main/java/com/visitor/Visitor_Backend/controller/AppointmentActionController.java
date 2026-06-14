@@ -8,9 +8,10 @@ import org.springframework.web.bind.annotation.*;
 @RestController
 @RequestMapping("/api/appointments/action")
 @CrossOrigin(
-    origins = {
+    originPatterns = {
         "http://localhost:5173",
-        "https://visitor-dun.vercel.app"
+        "https://visitor-dun.vercel.app",
+        "https://*.vercel.app"
     },
     allowCredentials = "true"
 )

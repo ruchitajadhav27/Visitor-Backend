@@ -31,6 +31,7 @@ public class Appointment {
     private String tokenNumber; 
     private Integer queuePosition;
     private boolean reminderSent = false;
+    private transient boolean hasResumeFile = false; // set in list responses only, never stored in DB
 
     // --- MANUAL GETTERS AND SETTERS (Fixes the errors) ---
     
@@ -111,4 +112,7 @@ public class Appointment {
 
 	public String getVisitHistory() { return visitHistory; }
 	public void setVisitHistory(String visitHistory) { this.visitHistory = visitHistory; }
+
+	public boolean isHasResumeFile() { return hasResumeFile; }
+	public void setHasResumeFile(boolean hasResumeFile) { this.hasResumeFile = hasResumeFile; }
 }

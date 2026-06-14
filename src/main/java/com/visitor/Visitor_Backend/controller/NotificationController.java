@@ -12,9 +12,10 @@ import com.visitor.Visitor_Backend.repository.NotificationRepository;
 
 @RestController
 @RequestMapping("/api/notifications")
-@CrossOrigin(origins = {
+@CrossOrigin(originPatterns = {
 	    "http://localhost:5173",
-	    "https://visitor-dun.vercel.app"
+	    "https://visitor-dun.vercel.app",
+	    "https://*.vercel.app"
 	})
 public class NotificationController {
     

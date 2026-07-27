@@ -27,8 +27,22 @@ public class Appointment {
     private String status = "Pending";
     private String resumeFile; // Base64 PDF string
     private String visitHistory;
+    
+    private String tokenNumber; 
+    private Integer queuePosition;
+    private boolean reminderSent = false;
+    private transient boolean hasResumeFile = false; // set in list responses only, never stored in DB
 
     // --- MANUAL GETTERS AND SETTERS (Fixes the errors) ---
+    
+    public String getTokenNumber() { return tokenNumber; }
+    public void setTokenNumber(String tokenNumber) { this.tokenNumber = tokenNumber; }
+
+    public Integer getQueuePosition() { return queuePosition; }
+    public void setQueuePosition(Integer queuePosition) { this.queuePosition = queuePosition; }
+
+    public boolean isReminderSent() { return reminderSent; }
+    public void setReminderSent(boolean reminderSent) { this.reminderSent = reminderSent; }
 
     public String getId() { return id; }
     public void setId(String id) { this.id = id; }
@@ -98,4 +112,7 @@ public class Appointment {
 
 	public String getVisitHistory() { return visitHistory; }
 	public void setVisitHistory(String visitHistory) { this.visitHistory = visitHistory; }
+
+	public boolean isHasResumeFile() { return hasResumeFile; }
+	public void setHasResumeFile(boolean hasResumeFile) { this.hasResumeFile = hasResumeFile; }
 }
